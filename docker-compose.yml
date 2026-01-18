@@ -1,0 +1,24 @@
+services:
+  jenkins:
+    image: jenkins/jenkins:latest
+    ports:
+      - "8081:8080"
+      - "50000:50000"
+    volumes:
+      - ${HOST_JENKINS_HOME}:/var/jenkins_home
+#      - /var/run/docker.sock:/var/run/docker.sock
+
+    links:
+      - worker-1
+
+  worker-1:
+    image: jenkins/ssh-agent:latest-jdk21
+    volumes:
+      - ${HOST_JENKINS_WORKER_1}:/home/jenkins
+    environment:
+      - JENKINS_SLAVE_SSH_PUBKEY=ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCVGIvmkKpjx6SAwsELyksJYPvF9YWFM6fpZ0mp6LON6KJwq2Ky2GP2kjAcBTYzS/rf6Fhm4JN9HB0OgYC6nDosfcsbv4ssbjHdwvgFEbB33e3xzzZp0pRNbEakm8naUSBWTMQh6t64i6sC7Cb+2WnNf/h1cEl8oYt+6j7Pqdsfp81LpMUE5CnXlOEVX267uqFW/f5yf+8cGAyVDOnodTz3j4GZdBwYyYqwe+jeJLQ0m5xj+pjGWYuKn+NftG6N/WsaKErZyQnkFB3WxgxVa5+D0iqFxaYvcFlh9cLKLry7QoDii2SM17H63CCHGiH23cdkGkyOPRb7cdmKZ8tS3DtrS+SnhDYEg1BZsyJPnX2zXvX42eCknd+au4aEHO+euGI2bsjCY+7bM0gDwBsrDe7ianfGMCsOu/M758C5UC5FDr+CV2Vum76u0HWFH7ZeinkPBrz66XvcNx+xpQyopSnhHCwo0ZWqdLK1kS4jlyObNejVzUtpeZHoiMUrUxOFid8=
+
+  sonarqube:
+    image: sonarqube:9-community
+    ports:
+      - "9000:9000"
