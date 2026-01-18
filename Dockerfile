@@ -1,5 +1,5 @@
-FROM openjdk:21-jdk
-LABEL maintainer="you"
+FROM eclipse-temurin:21-jdk
+LABEL maintainer="phb"
 
 # jar 파일 위치를 변수로 설정
 ARG JAR_FILE=build/libs/*.jar
