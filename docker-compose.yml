@@ -1,4 +1,11 @@
 services:
+  app:
+    image: beomiya/cicd-study:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      -
   jenkins:
     image: jenkins/jenkins:latest
     ports:
