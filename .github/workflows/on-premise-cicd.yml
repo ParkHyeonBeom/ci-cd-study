@@ -23,7 +23,7 @@ jobs:
         run: echo "Check Version --> ${{ steps.set-version.outputs.VERSION_NAME }}"
 
       - name: Checkout Source Code
-        uses: actions/checkout@v4  # 최신 안정 버전 권장
+        uses: actions/checkout@v4  # 최신 안정 버전 4 권장
         with:
           ref: ${{ github.event.inputs.tags }}
 
