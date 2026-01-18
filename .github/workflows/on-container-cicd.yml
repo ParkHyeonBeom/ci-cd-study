@@ -51,10 +51,10 @@ jobs:
         run: docker pull ${{ secrets.DOCKERHUB_USER_NAME }}/cicd-study
 
       - name: docker app service container stop
-        run: docker compose stop app && docker compose rm -f app
+        run: docker-compose down app
 
       - name: docker app service container start
-        run: docker compose up -d app
+        run: docker-compose up app -d
 
       - name: delete old docker image
         run: docker system prune -f
