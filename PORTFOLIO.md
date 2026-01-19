@@ -15,18 +15,21 @@
 
 | 분류 | 기술 |
 |------|------|
-| CI/CD | Jenkins (Master-Worker 구조) |
-| 컨테이너 | Docker, Docker Compose |
-| 클라우드 | AWS EC2 (Ubuntu 24.04) |
-| 레지스트리 | Docker Hub |
-| 빌드 | Gradle 8.8, Spring Boot 3.3.2, Java 21 |
-| 버전관리 | Git, GitHub |
-| 코드품질 | SonarQube |
-| 기타 | ngrok (Webhook 터널링) |
+| **CI/CD** | Jenkins (Master-Worker 구조) |
+| **컨테이너** | Docker (Multi-stage Build), Docker Compose |
+| **클라우드** | AWS EC2 (Ubuntu 24.04) |
+| **레지스트리** | Docker Hub |
+| **Backend** | Spring Boot 3.3.2, Java 21, Gradle 8.8 |
+| **Frontend** | React 19, Vite, Tailwind CSS 4 |
+| **버전관리** | Git, GitHub |
+| **코드품질** | SonarQube |
+| **기타** | ngrok (Webhook 터널링) |
 
 ---
 
 ## 시스템 아키텍처
+
+### CI/CD 파이프라인
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -60,11 +63,35 @@
   │          │                                │                            │
   │ beomiya/ │                                │  ┌──────────────────────┐  │
   │cicd-study│                                │  │  Docker Container    │  │
-  └──────────┘                                │  │  (Spring Boot App)   │  │
+  └──────────┘                                │  │  (Spring Boot + React)│  │
                                               │  │  Port: 8080          │  │
                                               │  └──────────────────────┘  │
                                               └────────────────────────────┘
 ```
+
+### Frontend + Backend 통합 구조
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Spring Boot JAR                          │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │  /static/                    ← React 빌드 결과물       │  │
+│  │    ├── index.html                                     │  │
+│  │    └── assets/                                        │  │
+│  │          ├── index-xxx.css   (Tailwind CSS)           │  │
+│  │          └── index-xxx.js    (React Bundle)           │  │
+│  ├───────────────────────────────────────────────────────┤  │
+│  │  Spring Boot Application                              │  │
+│  │    ├── REST API (필요시)                              │  │
+│  │    └── Static Resource Serving (React SPA)            │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+                    Port 8080 (HTTP)
+```
+
+**핵심**: React 앱이 Spring Boot의 정적 리소스로 포함되어 **단일 JAR**로 배포됩니다.
 
 ---
 
@@ -92,8 +119,10 @@
 - 컴파일, 단위 테스트, JAR 패키징
 - 빌드 실패 시 파이프라인 중단
 
-### Stage 3: Docker Build & Push
-- Dockerfile 기반 이미지 빌드
+### Stage 3: Docker Build & Push (Multi-stage)
+- **Stage 1 (Node.js)**: React 앱 빌드 (`npm ci && npm run build`)
+- **Stage 2 (JDK)**: Spring Boot 빌드 (React 결과물 포함)
+- **Stage 3 (JRE)**: 경량 실행 이미지 생성
 - `--platform linux/amd64` 옵션으로 EC2 호환 이미지 생성
 - Docker Hub에 버전 태그 + latest 태그로 Push
 
@@ -106,7 +135,46 @@
 
 ## 핵심 구현 내용
 
-### 1. Jenkins Master-Worker 분산 구조
+### 1. Multi-stage Docker 빌드 (Frontend + Backend 통합)
+
+```dockerfile
+# Stage 1: React 빌드
+FROM node:20-alpine AS frontend-build
+WORKDIR /app/frontend
+COPY portfolio-park/package*.json ./
+RUN npm ci
+COPY portfolio-park/ ./
+RUN npm run build
+
+# Stage 2: Spring Boot 빌드
+FROM eclipse-temurin:21-jdk AS backend-build
+WORKDIR /app
+COPY gradlew .
+COPY gradle gradle
+COPY build.gradle.kts settings.gradle.kts ./
+COPY src src
+
+# React 빌드 결과물 복사
+COPY --from=frontend-build /app/frontend/dist src/main/resources/static
+
+# Gradle 빌드
+RUN chmod +x ./gradlew && ./gradlew build -x test -x npmInstall -x npmBuild -x copyFrontend
+
+# Stage 3: 실행 이미지
+FROM eclipse-temurin:21-jre
+WORKDIR /app
+COPY --from=backend-build /app/build/libs/*.jar app.jar
+
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]
+```
+
+**구현 포인트:**
+- Node.js와 JDK가 분리된 빌드 스테이지
+- React 빌드 결과물을 Spring Boot의 static 폴더로 자동 복사
+- 최종 이미지는 JRE만 포함하여 경량화 (~200MB)
+
+### 2. Jenkins Master-Worker 분산 구조
 
 ```yaml
 # docker-compose.yml
@@ -132,18 +200,35 @@ services:
 - Worker: EC2 배포 전담 (보안 분리)
 - SSH 키 기반 인증으로 안전한 통신
 
-### 2. Docker-in-Docker 구성
+### 3. Gradle 빌드 자동화 (React 포함)
 
-```bash
-# Jenkins 컨테이너에 Docker CLI 설치
-docker exec jenkins apt-get update && apt-get install -y docker.io
+```kotlin
+// build.gradle.kts
+val frontendDir = file("portfolio-park")
 
-# docker.sock 마운트로 호스트 Docker 사용
-volumes:
-  - /var/run/docker.sock:/var/run/docker.sock
+tasks.register<Exec>("npmInstall") {
+    workingDir = frontendDir
+    commandLine("npm", "install")
+}
+
+tasks.register<Exec>("npmBuild") {
+    dependsOn("npmInstall")
+    workingDir = frontendDir
+    commandLine("npm", "run", "build")
+}
+
+tasks.register<Copy>("copyFrontend") {
+    dependsOn("npmBuild")
+    from("portfolio-park/dist")
+    into("src/main/resources/static")
+}
+
+tasks.named("processResources") {
+    dependsOn("copyFrontend")
+}
 ```
 
-### 3. GitHub Webhook 자동화
+### 4. GitHub Webhook 자동화
 
 ```
 GitHub Repository
@@ -161,7 +246,7 @@ Jenkins (localhost:8081/github-webhook/)
 Pipeline 실행
 ```
 
-### 4. Cross-Platform 빌드
+### 5. Cross-Platform 빌드
 
 ```groovy
 // Mac(ARM64)에서 빌드하여 EC2(AMD64)에 배포
@@ -241,6 +326,52 @@ pipeline {
 
 ---
 
+## React 포트폴리오 구현
+
+### 디자인 스펙
+
+| 항목 | 내용 |
+|------|------|
+| **Style** | Dark Premium (어두운 배경 + 포인트 컬러) |
+| **Primary Color** | Tech Indigo (#6366F1) |
+| **Font** | Pretendard Variable |
+| **Animation** | Subtle (fade-up, 호버 효과) |
+| **Framework** | React 19 + Vite + Tailwind CSS 4 |
+
+### 구현된 섹션
+
+| 섹션 | 내용 |
+|------|------|
+| **Header** | 스크롤 반응 blur 효과, 반응형 모바일 메뉴 |
+| **Hero** | 그라디언트 텍스트, 진입 애니메이션 |
+| **About** | 프로필 정보, Salesforce 자격증 4종 카드 |
+| **Projects** | 4개 프로젝트 상세 (기간, 업무, 기술스택) |
+| **Skills** | 5개 카테고리 기술 태그 |
+| **Contact/Footer** | 연락처 정보 |
+
+### React 프로젝트 구조
+
+```
+portfolio-park/
+├── src/
+│   ├── main.jsx           ← 엔트리포인트
+│   ├── App.jsx            ← 루트 컴포넌트
+│   ├── index.css          ← Tailwind CSS + 커스텀 스타일
+│   └── components/
+│       ├── Header.jsx
+│       ├── Hero.jsx
+│       ├── About.jsx
+│       ├── Projects.jsx
+│       ├── Skills.jsx
+│       └── Footer.jsx
+├── package.json
+├── vite.config.js
+├── tailwind.config.js
+└── postcss.config.js
+```
+
+---
+
 ## 트러블슈팅
 
 ### 1. SSH 키 인증 실패
@@ -287,13 +418,26 @@ docker run --platform linux/amd64 image:tag
 # 8080 포트 사용 컨테이너 찾아서 정리
 docker stop $(docker ps -q --filter publish=8080) || true
 docker rm $(docker ps -aq --filter publish=8080) || true
-
-# 일반 프로세스인 경우
-sudo lsof -i :8080
-sudo kill <PID>
 ```
 
-### 4. EC2 SSH 키 분실
+### 4. Tailwind CSS 4 설정
+
+| 항목 | 내용 |
+|------|------|
+| **증상** | `tailwindcss` 플러그인이 PostCSS에서 인식 안됨 |
+| **원인** | Tailwind CSS 4에서 PostCSS 플러그인 분리 |
+| **해결** | `@tailwindcss/postcss` 패키지 사용 |
+
+```javascript
+// postcss.config.js
+export default {
+  plugins: {
+    '@tailwindcss/postcss': {},
+  },
+}
+```
+
+### 5. EC2 SSH 키 분실
 
 | 항목 | 내용 |
 |------|------|
@@ -308,22 +452,6 @@ ssh-keygen -t rsa -b 4096 -f ec2-new-key
 # 2. EC2 Instance Connect로 접속 (AWS 콘솔)
 # 3. 공개키 등록
 echo '<공개키 내용>' >> ~/.ssh/authorized_keys
-
-# 4. 새 키로 접속 테스트
-ssh -i ec2-new-key ubuntu@<EC2_IP>
-```
-
-### 5. known_hosts 검증 실패
-
-| 항목 | 내용 |
-|------|------|
-| **증상** | Jenkins에서 Worker 연결 실패 |
-| **원인** | known_hosts에 Worker 호스트 키 미등록 |
-| **해결** | ssh-keyscan으로 호스트 키 등록 |
-
-```bash
-# Worker 호스트 키를 known_hosts에 등록
-ssh-keyscan -H worker-1 >> ~/.ssh/known_hosts
 ```
 
 ---
@@ -343,30 +471,27 @@ ssh-keyscan -H worker-1 >> ~/.ssh/known_hosts
 
 ### Docker 관련
 
+**Q: Multi-stage 빌드를 사용한 이유는?**
+> Frontend(React)와 Backend(Spring Boot)를 단일 이미지로 빌드하면서도 최종 이미지 크기를 최소화하기 위해서입니다. Node.js는 빌드 시에만 필요하고, 실행 시에는 JRE만 있으면 되므로 최종 이미지에서 제외됩니다.
+
 **Q: Docker를 사용하는 이유는?**
 > 환경 일관성과 배포 편의성 때문입니다. "내 로컬에서는 되는데..."라는 문제를 해결할 수 있고, 이미지만 있으면 어디서든 동일하게 실행됩니다.
 
 **Q: Docker-in-Docker vs Docker Socket 마운트 차이점은?**
 > Docker-in-Docker는 컨테이너 안에 별도의 Docker 데몬을 실행하는 것이고, Socket 마운트는 호스트의 Docker 데몬을 공유하는 것입니다. 이 프로젝트에서는 Socket 마운트를 사용했는데, 더 가볍고 이미지 캐시도 공유되어 효율적입니다.
 
-**Q: 멀티 플랫폼 이미지 빌드 경험은?**
-> Mac(ARM64)에서 개발하고 EC2(AMD64)에 배포할 때 플랫폼 불일치 문제를 겪었습니다. `--platform linux/amd64` 옵션으로 타겟 플랫폼을 명시해서 해결했습니다.
+### Frontend 통합 관련
+
+**Q: React를 Spring Boot에 통합한 이유는?**
+> 배포 단순화를 위해서입니다. 별도의 Nginx 서버 없이 단일 JAR로 프론트엔드와 백엔드를 함께 서빙할 수 있어 인프라 관리가 간소화됩니다.
+
+**Q: Tailwind CSS를 선택한 이유는?**
+> Utility-first 방식으로 빠른 스타일링이 가능하고, 사용하지 않는 CSS는 자동으로 제거되어 번들 크기가 작습니다. 또한 디자인 토큰 기반 작업에 적합합니다.
 
 ### AWS 관련
 
 **Q: EC2에 배포하는 과정을 설명해주세요.**
 > Jenkins Worker에서 SSH로 EC2에 접속하여, Docker Hub에서 최신 이미지를 pull하고, 기존 컨테이너를 정리한 후 새 컨테이너를 실행합니다. SSH 키는 Jenkins Credentials에 안전하게 저장됩니다.
-
-**Q: EC2 SSH 키를 분실했을 때 어떻게 복구했나요?**
-> AWS 콘솔의 EC2 Instance Connect 기능을 사용했습니다. 브라우저에서 바로 EC2에 접속할 수 있어서, 새로 생성한 공개키를 authorized_keys에 추가하여 복구했습니다.
-
-### 트러블슈팅 관련
-
-**Q: 가장 어려웠던 트러블슈팅은?**
-> SSH 키 인증 문제였습니다. Jenkins SSH 플러그인이 OpenSSH 형식을 제대로 인식하지 못해서, PEM 형식으로 변환해야 한다는 것을 알아내는 데 시간이 걸렸습니다. `ssh-keygen -p -m PEM` 명령어로 해결했습니다.
-
-**Q: 포트 충돌은 어떻게 해결했나요?**
-> 배포 스크립트에 기존 컨테이너 정리 로직을 추가했습니다. `docker ps --filter publish=8080`으로 해당 포트를 사용하는 컨테이너를 찾아서 정리합니다. 만약 Docker 컨테이너가 아닌 프로세스가 사용 중이면 `lsof -i :8080`으로 확인 후 kill합니다.
 
 ---
 
@@ -374,8 +499,9 @@ ssh-keyscan -H worker-1 >> ~/.ssh/known_hosts
 
 - GitHub Push 시 **평균 2분 내 자동 배포** 완료
 - Jenkins Master-Worker 분리로 **보안 및 확장성** 확보
-- Docker 컨테이너화로 **환경 일관성** 보장
-- **4가지 주요 트러블슈팅** 경험 및 해결
+- Docker Multi-stage 빌드로 **이미지 크기 최적화** (~200MB)
+- **Frontend + Backend 단일 JAR** 배포 구현
+- **5가지 주요 트러블슈팅** 경험 및 해결
 
 ---
 
@@ -393,18 +519,27 @@ ssh-keyscan -H worker-1 >> ~/.ssh/known_hosts
 
 ```
 ci-cd-study/
-├── src/
+├── src/                          # Spring Boot 소스코드
 │   └── main/
-│       └── java/
-│           └── com/fastcampus/cicdstudy/
-│               ├── CicdStudyApplication.java
-│               └── controller/
-│                   └── HealthController.java
-├── Dockerfile
-├── Jenkinsfile
-├── docker-compose.yml
-├── build.gradle.kts
-├── PORTFOLIO.md          # 이 문서
+│       ├── java/
+│       │   └── com/fastcampus/cicdstudy/
+│       │       ├── CicdStudyApplication.java
+│       │       └── controller/
+│       └── resources/
+│           └── static/           # React 빌드 결과물 (자동 생성)
+├── portfolio-park/               # React 프론트엔드
+│   ├── src/
+│   │   ├── main.jsx
+│   │   ├── App.jsx
+│   │   ├── index.css
+│   │   └── components/
+│   ├── package.json
+│   └── vite.config.js
+├── Dockerfile                    # Multi-stage 빌드
+├── Jenkinsfile                   # CI/CD 파이프라인
+├── docker-compose.yml            # 로컬 개발 환경
+├── build.gradle.kts              # Gradle 빌드 (React 빌드 포함)
+├── PORTFOLIO.md                  # 이 문서
 └── README.md
 ```
 

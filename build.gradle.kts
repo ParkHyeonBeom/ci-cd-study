@@ -37,3 +37,30 @@ dependencies {
 tasks.withType<Test> {
     useJUnitPlatform()
 }
+
+// React 포트폴리오 빌드 태스크
+val frontendDir = file("portfolio-park")
+
+tasks.register<Exec>("npmInstall") {
+    workingDir = frontendDir
+    commandLine("npm", "install")
+    onlyIf { frontendDir.exists() }
+}
+
+tasks.register<Exec>("npmBuild") {
+    dependsOn("npmInstall")
+    workingDir = frontendDir
+    commandLine("npm", "run", "build")
+    onlyIf { frontendDir.exists() }
+}
+
+tasks.register<Copy>("copyFrontend") {
+    dependsOn("npmBuild")
+    from("portfolio-park/dist")
+    into("src/main/resources/static")
+    onlyIf { file("portfolio-park/dist").exists() }
+}
+
+tasks.named("processResources") {
+    dependsOn("copyFrontend")
+}

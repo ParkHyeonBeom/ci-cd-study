@@ -1,20 +1,19 @@
 services:
-  app:
-    image: beomiya/cicd-study:latest
-    ports:
-      - "8080:8080"
-    environment:
-      - SPRING_PROFILES_ACTIVE=prod
-      -
+#  app:
+#    image: beomiya/cicd-study:latest
+#    ports:
+#      - "8080:8080"
+#    environment:
+#      - SPRING_PROFILES_ACTIVE=prod
   jenkins:
     image: jenkins/jenkins:latest
+    user: root
     ports:
       - "8081:8080"
       - "50000:50000"
     volumes:
       - ${HOST_JENKINS_HOME}:/var/jenkins_home
-#      - /var/run/docker.sock:/var/run/docker.sock
-
+      - /var/run/docker.sock:/var/run/docker.sock
     links:
       - worker-1
 
@@ -23,7 +22,7 @@ services:
     volumes:
       - ${HOST_JENKINS_WORKER_1}:/home/jenkins
     environment:
-      - JENKINS_SLAVE_SSH_PUBKEY=ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCVGIvmkKpjx6SAwsELyksJYPvF9YWFM6fpZ0mp6LON6KJwq2Ky2GP2kjAcBTYzS/rf6Fhm4JN9HB0OgYC6nDosfcsbv4ssbjHdwvgFEbB33e3xzzZp0pRNbEakm8naUSBWTMQh6t64i6sC7Cb+2WnNf/h1cEl8oYt+6j7Pqdsfp81LpMUE5CnXlOEVX267uqFW/f5yf+8cGAyVDOnodTz3j4GZdBwYyYqwe+jeJLQ0m5xj+pjGWYuKn+NftG6N/WsaKErZyQnkFB3WxgxVa5+D0iqFxaYvcFlh9cLKLry7QoDii2SM17H63CCHGiH23cdkGkyOPRb7cdmKZ8tS3DtrS+SnhDYEg1BZsyJPnX2zXvX42eCknd+au4aEHO+euGI2bsjCY+7bM0gDwBsrDe7ianfGMCsOu/M758C5UC5FDr+CV2Vum76u0HWFH7ZeinkPBrz66XvcNx+xpQyopSnhHCwo0ZWqdLK1kS4jlyObNejVzUtpeZHoiMUrUxOFid8=
+      - JENKINS_SLAVE_SSH_PUBKEY=ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCTKvRksD94opG1iiqi1YE9mibpaHQUBrRF9EjI68gOqunqBEjtBVR1HVN4Ga5kUxLMlDbDZAa/0ZCM3y+fvCpfwANQ4C4EoUB9dPyoDXUIAQYhzBZzmDKZm9EPWw7+ug0egDCVsPgpFJWpDX/pf3qmkRHtd6Xcv8SvQedzjO/vHvHnpbdrLeh6fF0Bw4xffoimQQsTo7T0MBhV79nG9yinMzsRigk1/egCq7UQs0azvnqBfzLSugHFuvw42GvGdG/zxrj0XjjgcXckgBAgx1Jw4YFq4yOCxFHREOZRph7PXcYWeDRfHsI22BfYVQzi9ksbhl7V/xhKoifju4Gmr4ASQheHaHxNfZzbp2tHGwpXFLjDJUji7Oj3l/NfWlDTftEJsf1RgdIu4PKpWPyMxlm0YywyRiiyvv92uRGSFai6Ye6La3O8aLHYbZ3gUiNaEd+1toWOggCqTMe8mpXABQG7oRSdr+iTw3PTveuQN+5MOV9173t+rPHTLHrL+/ORsU5lYvKp8S93wdFx5T/fe/c5A2wOKlrETRnfyTBSOpEnjRNtzaYvXmyGdKgfJ8zJE6RlCyZuFc1zItNRrELnHK+fHY0c/3gT3FMqm9uF15eDfZGCRvU2Xve/GgF3wcAIbi+R3wUkTARAET1QzX5T3JYjM+qUVeNv3/79lkh6M5KkqQ== jenkins@e6bad8d61e5f
 
   sonarqube:
     image: sonarqube:9-community
