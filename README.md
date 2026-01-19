@@ -1,4 +1,4 @@
-# FastCampus CI/CD 수업
+# Github Actions  & Jenkins를 활용한 CI/CD 구축
 ## 프로젝트 구조
 - src : 배포용 Spring Boot Application 예제 코드
 - groovy : Jenkins Pipeline 예제 코드
