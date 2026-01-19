@@ -17,7 +17,8 @@ pipeline {
         stage('Build & Test') {
             agent { label 'built-in' }
             steps {
-                sh './gradlew clean build'
+                // npm 태스크 스킵 - Docker Multi-stage 빌드에서 React 빌드 처리
+                sh './gradlew clean build -x npmInstall -x npmBuild -x copyFrontend'
             }
         }
 
