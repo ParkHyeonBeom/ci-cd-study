@@ -23,6 +23,8 @@
 | **Frontend** | React 19, Vite, Tailwind CSS 4 |
 | **버전관리** | Git, GitHub |
 | **코드품질** | SonarQube |
+| **Reverse Proxy** | Nginx (SSL/TLS, Blue-Green 라우팅) |
+| **SSL 인증서** | Let's Encrypt (Certbot) |
 | **기타** | ngrok (Webhook 터널링) |
 
 ---
@@ -67,6 +69,40 @@
                                               │  │  Port: 8080          │  │
                                               │  └──────────────────────┘  │
                                               └────────────────────────────┘
+```
+
+### Blue-Green 배포 아키텍처 (with HTTPS)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                           Client                                 │
+│                    https://parkhyeonbeom.kro.kr                  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              │ HTTPS (Port 443)
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     AWS EC2 Instance                             │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │                 Nginx (api-gateway)                        │  │
+│  │  ┌─────────────────────────────────────────────────────┐  │  │
+│  │  │  SSL Termination (Let's Encrypt)                    │  │  │
+│  │  │  Port 80  → 301 Redirect → HTTPS                    │  │  │
+│  │  │  Port 443 → Upstream (app-blue or app-green)        │  │  │
+│  │  └─────────────────────────────────────────────────────┘  │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                              │                                   │
+│                 ┌────────────┴────────────┐                     │
+│                 │ (Blue-Green Routing)    │                     │
+│                 ▼                         ▼                     │
+│  ┌──────────────────────┐    ┌──────────────────────┐          │
+│  │     app-blue         │    │     app-green        │          │
+│  │   (Active/Standby)   │    │   (Active/Standby)   │          │
+│  │                      │    │                      │          │
+│  │  Spring Boot + React │    │  Spring Boot + React │          │
+│  │  Port 8081:8080      │    │  Port 8082:8080      │          │
+│  └──────────────────────┘    └──────────────────────┘          │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ### Frontend + Backend 통합 구조
@@ -251,6 +287,134 @@ Pipeline 실행
 ```groovy
 // Mac(ARM64)에서 빌드하여 EC2(AMD64)에 배포
 docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}", "--platform linux/amd64 .")
+```
+
+### 6. SSL/HTTPS 설정 (Let's Encrypt)
+
+HTTPS를 적용하여 보안 통신을 구현했습니다.
+
+#### 아키텍처
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         Client (Browser)                         │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              │ HTTPS (Port 443)
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     Nginx (api-gateway)                          │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  Port 80  → 301 Redirect → https://$host$request_uri      │  │
+│  │  Port 443 → SSL Termination → Proxy to app-blue/green     │  │
+│  │                                                           │  │
+│  │  SSL Certificate: /etc/letsencrypt/live/domain/           │  │
+│  │    ├── fullchain.pem (인증서)                              │  │
+│  │    └── privkey.pem   (개인키)                              │  │
+│  └───────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              │ HTTP (Internal)
+                              ▼
+              ┌───────────────┴───────────────┐
+              │                               │
+       ┌──────▼──────┐                 ┌──────▼──────┐
+       │  app-blue   │                 │  app-green  │
+       │  Port 8080  │                 │  Port 8080  │
+       └─────────────┘                 └─────────────┘
+```
+
+#### Let's Encrypt 인증서 발급
+
+```bash
+# EC2에서 실행
+sudo apt update && sudo apt install certbot -y
+
+# Nginx 중지 (포트 80 해제)
+sudo docker stop api-gateway
+
+# Standalone 모드로 인증서 발급
+sudo certbot certonly --standalone -d parkhyeonbeom.kro.kr
+
+# 인증서 위치 확인
+sudo ls /etc/letsencrypt/live/parkhyeonbeom.kro.kr/
+# fullchain.pem, privkey.pem
+```
+
+#### docker-compose-app.yml 설정
+
+```yaml
+api-gateway:
+  image: nginx
+  hostname: api-gateway
+  container_name: api-gateway
+  ports:
+    - "80:80"
+    - "443:443"      # HTTPS 포트 추가
+  volumes:
+    - ./nginx.conf:/etc/nginx/nginx.conf
+    - ./nginx-conf:/etc/nginx/conf.d
+    - /etc/letsencrypt:/etc/letsencrypt:ro  # SSL 인증서 마운트 (읽기 전용)
+  networks:
+    vpc:
+      ipv4_address: 192.168.0.2
+```
+
+#### nginx.conf SSL 설정
+
+```nginx
+http {
+    # HTTP → HTTPS 리다이렉트
+    server {
+        listen 80;
+        server_name parkhyeonbeom.kro.kr;
+        return 301 https://$host$request_uri;
+    }
+
+    # HTTPS 설정
+    server {
+        listen 443 ssl;
+        server_name parkhyeonbeom.kro.kr;
+
+        # SSL 인증서 경로
+        ssl_certificate /etc/letsencrypt/live/parkhyeonbeom.kro.kr/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/parkhyeonbeom.kro.kr/privkey.pem;
+
+        # SSL 프로토콜 및 암호화
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;
+        ssl_prefer_server_ciphers off;
+
+        location / {
+            proxy_pass         http://app-blue;
+            proxy_redirect     off;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header   X-Forwarded-Proto $scheme;  # HTTPS 전달
+        }
+    }
+}
+```
+
+#### EC2 보안 그룹 설정
+
+| 포트 | 프로토콜 | 소스 | 용도 |
+|------|----------|------|------|
+| 22 | TCP | My IP | SSH 접속 |
+| 80 | TCP | 0.0.0.0/0 | HTTP (HTTPS 리다이렉트) |
+| 443 | TCP | 0.0.0.0/0 | HTTPS |
+
+#### 인증서 자동 갱신 (Cron)
+
+Let's Encrypt 인증서는 90일마다 갱신이 필요합니다.
+
+```bash
+# Crontab 등록
+sudo crontab -e
+
+# 매월 1일 새벽 3시에 갱신 시도
+0 3 1 * * certbot renew --pre-hook "docker stop api-gateway" --post-hook "docker start api-gateway"
 ```
 
 ---
@@ -454,6 +618,66 @@ ssh-keygen -t rsa -b 4096 -f ec2-new-key
 echo '<공개키 내용>' >> ~/.ssh/authorized_keys
 ```
 
+### 6. HTTPS 연결 거부 (ERR_CONNECTION_REFUSED)
+
+| 항목 | 내용 |
+|------|------|
+| **증상** | `https://도메인` 접속 시 ERR_CONNECTION_REFUSED |
+| **원인** | Nginx가 443 포트를 리스닝하지 않음, SSL 인증서 미설정 |
+| **해결** | Let's Encrypt 인증서 발급 및 Nginx SSL 설정 |
+
+```bash
+# 1. 인증서 발급
+sudo certbot certonly --standalone -d 도메인
+
+# 2. docker-compose-app.yml에 443 포트 및 인증서 볼륨 추가
+ports:
+  - "80:80"
+  - "443:443"
+volumes:
+  - /etc/letsencrypt:/etc/letsencrypt:ro
+
+# 3. nginx.conf에 SSL 서버 블록 추가
+# 4. 컨테이너 재시작
+sudo docker-compose -f docker-compose-app.yml up -d --force-recreate api-gateway
+```
+
+### 7. Jenkins Worker에서 Docker 명령 실패
+
+| 항목 | 내용 |
+|------|------|
+| **증상** | `Cannot run program "docker": error=2, No such file or directory` |
+| **원인** | Jenkins SSH Agent 이미지에 Docker CLI가 포함되어 있지 않음 |
+| **해결** | Docker CLI가 포함된 커스텀 Jenkins Agent 이미지 사용 |
+
+```dockerfile
+# Dockerfile.jenkins-agent
+FROM jenkins/ssh-agent:latest-jdk21
+
+USER root
+
+# Docker CLI 설치
+RUN apt-get update && \
+    apt-get install -y apt-transport-https ca-certificates curl gnupg && \
+    install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc && \
+    chmod a+r /etc/apt/keyrings/docker.asc && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian bookworm stable" > /etc/apt/sources.list.d/docker.list && \
+    apt-get update && \
+    apt-get install -y docker-ce-cli && \
+    rm -rf /var/lib/apt/lists/*
+```
+
+```yaml
+# docker-compose.yml
+worker-1:
+  build:
+    context: .
+    dockerfile: Dockerfile.jenkins-agent
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock  # Docker 소켓 마운트
+```
+
 ---
 
 ## 기술 면접 대비 Q&A
@@ -492,6 +716,17 @@ echo '<공개키 내용>' >> ~/.ssh/authorized_keys
 
 **Q: EC2에 배포하는 과정을 설명해주세요.**
 > Jenkins Worker에서 SSH로 EC2에 접속하여, Docker Hub에서 최신 이미지를 pull하고, 기존 컨테이너를 정리한 후 새 컨테이너를 실행합니다. SSH 키는 Jenkins Credentials에 안전하게 저장됩니다.
+
+### SSL/HTTPS 관련
+
+**Q: SSL Termination이란 무엇인가요?**
+> SSL Termination은 HTTPS 암호화/복호화를 프록시 서버(Nginx)에서 처리하고, 내부 애플리케이션과는 HTTP로 통신하는 방식입니다. 이렇게 하면 애플리케이션 서버의 부하를 줄이고, 인증서 관리를 한 곳에서 할 수 있습니다.
+
+**Q: Let's Encrypt를 선택한 이유는?**
+> 무료이고, 자동화된 인증서 발급/갱신이 가능하며, 널리 사용되어 신뢰성이 검증되었기 때문입니다. Certbot을 통해 CLI로 쉽게 관리할 수 있고, 90일마다 갱신이 필요하지만 Cron으로 자동화할 수 있습니다.
+
+**Q: HTTP에서 HTTPS로 리다이렉트하는 이유는?**
+> 사용자가 HTTP로 접속해도 자동으로 HTTPS로 전환되어 보안 통신을 강제합니다. 301 Permanent Redirect를 사용하면 브라우저가 이를 캐시하여 다음 접속부터는 바로 HTTPS로 연결합니다.
 
 ---
 
@@ -1079,6 +1314,7 @@ pipeline {
 ## 향후 개선 계획
 
 - [x] **Blue-Green 무중단 배포** - Nginx 리버스 프록시 활용
+- [x] **SSL/HTTPS 적용** - Let's Encrypt 인증서 + Nginx SSL Termination
 - [ ] **SonarQube 연동** - 코드 품질 게이트 적용
 - [ ] **Slack 알림** - 빌드 성공/실패 알림
 - [ ] **Kubernetes 전환** - EKS 또는 자체 클러스터 구축
