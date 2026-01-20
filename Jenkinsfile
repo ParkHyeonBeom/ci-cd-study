@@ -103,13 +103,14 @@ pipeline {
                             echo "[Step 1] Pulling new image..."
                             sudo docker pull ${DOCKER_IMAGE}:${DOCKER_TAG}
 
-                            echo "[Step 2] Ensuring api-gateway is running..."
                             cd ${DEPLOY_PATH}
-                            sudo docker-compose -f docker-compose-app.yml up -d api-gateway
 
-                            echo "[Step 3] Deploying to ${env.DEPLOY_ENV}..."
+                            echo "[Step 2] Ensuring api-gateway is running (no recreate)..."
+                            sudo docker-compose -f docker-compose-app.yml up -d --no-recreate api-gateway
+
+                            echo "[Step 3] Deploying ${env.DEPLOY_ENV} with new image..."
                             export IMAGE=${DOCKER_IMAGE}:${DOCKER_TAG}
-                            sudo -E docker-compose -f docker-compose-app.yml up -d --no-deps app-${env.DEPLOY_ENV}
+                            sudo -E docker-compose -f docker-compose-app.yml up -d --no-deps --force-recreate app-${env.DEPLOY_ENV}
 
                             echo "Deployment to ${env.DEPLOY_ENV} initiated."
                         '
