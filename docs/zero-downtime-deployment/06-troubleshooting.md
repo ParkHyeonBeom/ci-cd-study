@@ -387,6 +387,107 @@ spring:
 
 ---
 
+## 11. fastcampus-cicd.conf 파일 없음
+
+### 증상
+
+```
+nginx: [emerg] open() "/etc/nginx/conf.d/fastcampus-cicd.conf" failed (2: No such file or directory)
+```
+
+api-gateway 컨테이너가 시작되지 않고 계속 재시작됨
+
+### 원인
+
+- EC2에 처음 배포할 때 `fastcampus-cicd.conf` 파일이 생성되지 않음
+- `nginx.conf`에서 이 파일을 include하려고 하지만 파일이 없음
+
+### 해결 방법
+
+**EC2에서 초기 설정 파일 생성:**
+
+```bash
+# Blue 환경 활성화 (Green 종료 설정 복사)
+cp /home/ubuntu/nginx-conf/green-shutdown.conf /home/ubuntu/nginx-conf/fastcampus-cicd.conf
+
+# api-gateway 재시작
+sudo docker-compose -f docker-compose-app.yml up -d --force-recreate api-gateway
+```
+
+### 영구 해결 (Jenkinsfile 수정)
+
+`Sync Config Files` 스테이지에서 파일이 없으면 생성하도록 추가:
+
+```groovy
+stage('Sync Config Files') {
+    steps {
+        sshagent(['ec2-ssh-key']) {
+            sh """
+                scp -o StrictHostKeyChecking=no docker-compose-app.yml nginx.conf ubuntu@\${EC2_HOST}:\${DEPLOY_PATH}/
+                scp -o StrictHostKeyChecking=no -r nginx-conf ubuntu@\${EC2_HOST}:\${DEPLOY_PATH}/
+
+                # fastcampus-cicd.conf가 없으면 생성
+                ssh -o StrictHostKeyChecking=no ubuntu@\${EC2_HOST} '
+                    if [ ! -f \${DEPLOY_PATH}/nginx-conf/fastcampus-cicd.conf ]; then
+                        cp \${DEPLOY_PATH}/nginx-conf/green-shutdown.conf \${DEPLOY_PATH}/nginx-conf/fastcampus-cicd.conf
+                    fi
+                '
+            """
+        }
+    }
+}
+```
+
+---
+
+## 12. 시스템 Nginx가 포트 80 점유
+
+### 증상
+
+```
+Error response from daemon: failed to bind host port 0.0.0.0:80/tcp: address already in use
+```
+
+api-gateway 컨테이너가 시작되지 않음
+
+### 원인
+
+EC2에 시스템 레벨의 Nginx가 이미 설치되어 실행 중
+
+```bash
+$ sudo lsof -i :80
+COMMAND PID     USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+nginx   609     root    6u  IPv4   6017      0t0  TCP *:http (LISTEN)
+nginx   610 www-data    6u  IPv4   6017      0t0  TCP *:http (LISTEN)
+```
+
+### 해결 방법
+
+**시스템 Nginx 중지 및 비활성화:**
+
+```bash
+# Nginx 중지
+sudo systemctl stop nginx
+
+# 부팅 시 자동시작 비활성화
+sudo systemctl disable nginx
+
+# 포트 80 해제 확인
+sudo lsof -i :80
+
+# api-gateway 시작
+sudo docker-compose -f docker-compose-app.yml up -d --force-recreate api-gateway
+```
+
+### 확인
+
+```bash
+sudo docker ps
+# api-gateway가 0.0.0.0:80->80/tcp로 실행 중이어야 함
+```
+
+---
+
 ## 빠른 참조 명령어
 
 ### Jenkins Worker SSH 키 갱신

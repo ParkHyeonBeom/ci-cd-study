@@ -116,3 +116,5 @@ nginx-conf/
 | Docker 권한 오류 | `usermod -aG root jenkins` | [06-troubleshooting.md](./06-troubleshooting.md#2-docker-권한-오류-jenkins-worker) |
 | EC2 설정 파일 없음 | Sync Config Files 스테이지 추가 | [06-troubleshooting.md](./06-troubleshooting.md#4-ec2-설정-파일-없음) |
 | 헬스체크 실패 | api-gateway 함께 시작 | [06-troubleshooting.md](./06-troubleshooting.md#5-api-gateway-컨테이너-없음) |
+| fastcampus-cicd.conf 없음 | 초기 설정 파일 생성 | [06-troubleshooting.md](./06-troubleshooting.md#11-fastcampus-cicdconf-파일-없음) |
+| 포트 80 사용 중 | 시스템 Nginx 중지 | [06-troubleshooting.md](./06-troubleshooting.md#12-시스템-nginx가-포트-80-점유) |

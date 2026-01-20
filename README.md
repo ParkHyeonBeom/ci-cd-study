@@ -282,6 +282,8 @@ docker exec ci-cd-study-jenkins-1 bash -c \
 | Docker 권한 오류 (EC2) | ubuntu 유저 권한 없음 | `sudo` 사용 또는 docker 그룹 추가 |
 | 설정 파일 없음 (EC2) | 파일 미배포 | `Sync Config Files` 스테이지 추가 |
 | api-gateway 없음 | 컨테이너 미실행 | 배포 시 api-gateway도 함께 시작 |
+| fastcampus-cicd.conf 없음 | 초기 설정 파일 미생성 | `green-shutdown.conf` 복사하여 생성 |
+| 포트 80 사용 중 | 시스템 Nginx 실행 중 | `systemctl stop/disable nginx` |
 
 ---
 

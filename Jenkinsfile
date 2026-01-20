@@ -80,6 +80,14 @@ pipeline {
                         scp -o StrictHostKeyChecking=no docker-compose-app.yml nginx.conf ubuntu@${EC2_HOST}:${DEPLOY_PATH}/
                         scp -o StrictHostKeyChecking=no -r nginx-conf ubuntu@${EC2_HOST}:${DEPLOY_PATH}/
                         scp -o StrictHostKeyChecking=no src/main/resources/application-blue.yml src/main/resources/application-green.yml ubuntu@${EC2_HOST}:${DEPLOY_PATH}/
+
+                        # fastcampus-cicd.conf가 없으면 초기 생성 (Blue 활성화)
+                        ssh -o StrictHostKeyChecking=no ubuntu@${EC2_HOST} '
+                            if [ ! -f ${DEPLOY_PATH}/nginx-conf/fastcampus-cicd.conf ]; then
+                                echo "Creating initial fastcampus-cicd.conf..."
+                                cp ${DEPLOY_PATH}/nginx-conf/green-shutdown.conf ${DEPLOY_PATH}/nginx-conf/fastcampus-cicd.conf
+                            fi
+                        '
                         echo "Config files synced successfully."
                     """
                 }
