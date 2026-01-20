@@ -98,7 +98,7 @@ pipeline {
                             echo "[Step 2] Deploying to ${env.DEPLOY_ENV}..."
                             cd ${DEPLOY_PATH}
                             export IMAGE=${DOCKER_IMAGE}:${DOCKER_TAG}
-                            docker-compose -f docker-compose-app.yml up -d app-${env.DEPLOY_ENV}
+                            docker-compose -f docker-compose-app.yml up -d app-${env.DEPLOY_ENV} api-gateway
 
                             echo "Deployment to ${env.DEPLOY_ENV} initiated."
                         '
