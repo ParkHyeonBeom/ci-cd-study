@@ -28,7 +28,7 @@ pipeline {
             agent { label 'worker-1' }
             steps {
                 script {
-                    docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-access-token') {
+                    docker.withRegistry('https://registry.hub.docker.com', 'dockerhub-credentials') {
                         def image = docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}", "--platform linux/amd64 .")
                         image.push()
                         image.push('latest')

@@ -884,9 +884,201 @@ Jenkins가 이 파일을 읽고 순서대로 실행
 
 ---
 
+## 파이프라인 관리 방식 비교
+
+Jenkins 파이프라인을 관리하는 두 가지 방식을 비교합니다.
+
+### 방식 1: Jenkins UI에서 직접 작성 (Tag 기반 수동 배포)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Jenkins UI Pipeline Script 방식                             │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  1. Jenkins → New Item → Pipeline 생성                      │
+│  2. Pipeline 섹션에서 "Pipeline script" 선택                 │
+│  3. Script 직접 작성                                        │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  pipeline {                                         │   │
+│  │      agent { label 'worker-1' }                     │   │
+│  │      stages {                                       │   │
+│  │          stage('Checkout') {                        │   │
+│  │              steps {                                │   │
+│  │                  git branch: 'master',              │   │
+│  │                      url: 'https://github.com/...'  │   │
+│  │              }                                      │   │
+│  │          }                                          │   │
+│  │          // ...                                     │   │
+│  │      }                                              │   │
+│  │  }                                                  │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**특징:**
+- `checkout scm` 사용 불가 → `git branch: '...', url: '...'` 명시 필요
+- 파이프라인 코드가 Jenkins 서버에 저장됨
+- 빠른 수정/테스트 가능 (UI에서 바로 편집)
+
+**Tag 기반 배포 예시:**
+```groovy
+pipeline {
+    agent { label 'worker-1' }
+
+    parameters {
+        string(name: 'TAG_NAME', defaultValue: 'v1.0.0', description: '배포할 태그')
+    }
+
+    stages {
+        stage('Checkout Tag') {
+            steps {
+                git branch: "refs/tags/${params.TAG_NAME}",
+                    url: 'https://github.com/ParkHyeonBeom/ci-cd-study.git',
+                    credentialsId: 'EC2_SSH'
+            }
+        }
+        // ... 빌드 및 배포 스테이지
+    }
+}
+```
+
+**장점:**
+- 특정 태그(버전)를 선택하여 배포 가능
+- 롤백 시 이전 태그로 간단히 재배포
+- 빠른 프로토타이핑 및 테스트
+
+**단점:**
+- 파이프라인 코드 버전 관리 불가
+- 코드 리뷰 불가능
+- Jenkins 서버 장애 시 설정 유실 위험
+
+---
+
+### 방식 2: Pipeline script from SCM (Jenkinsfile 기반)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Pipeline script from SCM 방식                               │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  1. Jenkins → New Item → Pipeline 생성                      │
+│  2. Pipeline 섹션에서 "Pipeline script from SCM" 선택        │
+│  3. Git 저장소 URL 및 Jenkinsfile 경로 지정                  │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  Definition: Pipeline script from SCM               │   │
+│  │  SCM: Git                                           │   │
+│  │  Repository URL: https://github.com/.../ci-cd-study │   │
+│  │  Credentials: EC2_SSH                               │   │
+│  │  Branch: */master                                   │   │
+│  │  Script Path: Jenkinsfile                           │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  Jenkins가 빌드 시마다 Git에서 Jenkinsfile을 가져옴          │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Jenkinsfile 예시:**
+```groovy
+pipeline {
+    agent none
+
+    environment {
+        DOCKER_IMAGE = 'beomiya/cicd-study'
+        DOCKER_TAG = "${BUILD_NUMBER}"
+    }
+
+    stages {
+        stage('Checkout') {
+            agent { label 'worker-1' }
+            steps {
+                checkout scm  // SCM 방식에서만 사용 가능
+            }
+        }
+
+        stage('Build & Test') {
+            agent { label 'worker-1' }
+            steps {
+                sh './gradlew clean build -x npmInstall -x npmBuild -x copyFrontend'
+            }
+        }
+
+        stage('Docker Build & Push') {
+            agent { label 'worker-1' }
+            steps {
+                script {
+                    docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-access-token') {
+                        def image = docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}", "--platform linux/amd64 .")
+                        image.push()
+                        image.push('latest')
+                    }
+                }
+            }
+        }
+        // ... 배포 스테이지
+    }
+}
+```
+
+**장점:**
+- **Pipeline as Code**: 파이프라인이 코드로 관리됨
+- **버전 관리**: Git 히스토리로 변경 이력 추적
+- **코드 리뷰**: PR을 통한 파이프라인 변경 검토 가능
+- **재사용성**: 다른 프로젝트에서 쉽게 복사/수정
+- **백업**: Git에 저장되어 Jenkins 장애에도 안전
+
+**단점:**
+- 파이프라인 수정 시 Git push 필요
+- 초기 설정이 UI 방식보다 복잡
+
+---
+
+### 두 방식 비교 요약
+
+| 항목 | UI 직접 작성 (Tag 기반) | SCM 방식 (Jenkinsfile) |
+|------|------------------------|------------------------|
+| **코드 저장 위치** | Jenkins 서버 | Git 저장소 |
+| **버전 관리** | ❌ 불가능 | ✅ Git으로 관리 |
+| **코드 리뷰** | ❌ 불가능 | ✅ PR 리뷰 가능 |
+| **checkout 방식** | `git branch: '...'` 명시 | `checkout scm` 사용 |
+| **수정 용이성** | ✅ UI에서 바로 편집 | △ Git push 필요 |
+| **백업/복구** | ❌ Jenkins 의존 | ✅ Git에 안전 보관 |
+| **권장 환경** | 테스트/PoC | **프로덕션 (권장)** |
+
+---
+
+### 실무 권장 사항
+
+```
+개발 초기 / 테스트:
+┌─────────────────────────────────────────┐
+│  UI 직접 작성 방식                       │
+│  → 빠른 수정 및 테스트                   │
+│  → 파이프라인 구조 실험                  │
+└─────────────────────────────────────────┘
+
+프로덕션 / 팀 협업:
+┌─────────────────────────────────────────┐
+│  Pipeline script from SCM (Jenkinsfile) │
+│  → 버전 관리 및 코드 리뷰               │
+│  → 변경 이력 추적                       │
+│  → Infrastructure as Code 실현          │
+└─────────────────────────────────────────┘
+```
+
+**권장 워크플로우:**
+1. UI 방식으로 파이프라인 프로토타이핑
+2. 안정화되면 Jenkinsfile로 이전
+3. SCM 방식으로 전환하여 운영
+
+---
+
 ## 향후 개선 계획
 
-- [ ] **Blue-Green 무중단 배포** - Nginx 리버스 프록시 활용
+- [x] **Blue-Green 무중단 배포** - Nginx 리버스 프록시 활용
 - [ ] **SonarQube 연동** - 코드 품질 게이트 적용
 - [ ] **Slack 알림** - 빌드 성공/실패 알림
 - [ ] **Kubernetes 전환** - EKS 또는 자체 클러스터 구축
