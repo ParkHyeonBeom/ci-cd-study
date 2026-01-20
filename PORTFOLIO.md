@@ -105,6 +105,70 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+### 무중단 배포 흐름 (Zero-Downtime Deployment)
+
+```
+예시: Blue가 Active, Green에 새 버전 배포
+
+┌─────────────────────────────────────────────────────────────────┐
+│  Step 1: 새 이미지 Pull                                          │
+│  ┌─────────────┐                                                │
+│  │ Docker Hub  │ ──pull──▶ EC2                                  │
+│  └─────────────┘                                                │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Step 2: Standby 환경(Green) 배포                                │
+│                                                                 │
+│  docker-compose up -d --no-recreate api-gateway  ← 재생성 안함  │
+│  docker-compose up -d --no-deps --force-recreate app-green      │
+│                              │                                   │
+│  ┌───────────┐         ┌─────▼─────┐         ┌───────────┐     │
+│  │ api-gateway│ ──────▶│ app-blue  │         │ app-green │     │
+│  │  (유지)    │        │ (Active)  │         │ (시작중)  │     │
+│  └───────────┘         └───────────┘         └───────────┘     │
+│       │                      ▲                                  │
+│       └──────────────────────┘ 트래픽 계속 전달                  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Step 3: Health Check (Green)                                    │
+│                                                                 │
+│  curl http://app-green:8080/health                              │
+│  → 30회 재시도, 5초 간격                                         │
+│  → "cicd-study-green Health Statue ::: Good!!!OhYeah~"          │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Step 4: 트래픽 전환 (nginx -s reload)                           │
+│                                                                 │
+│  cp blue-shutdown.conf fastcampus-cicd.conf                     │
+│  docker exec api-gateway nginx -s reload  ← Graceful Reload     │
+│                                                                 │
+│  ┌───────────┐         ┌───────────┐         ┌───────────┐     │
+│  │ api-gateway│         │ app-blue  │         │ app-green │     │
+│  │           │─────────────────────────────▶│ (Active)  │     │
+│  └───────────┘         │ (Standby) │         └───────────┘     │
+│                        └───────────┘                            │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Step 5: 이전 환경(Blue) 중지                                    │
+│                                                                 │
+│  docker-compose stop app-blue                                   │
+│  → 롤백 필요 시 즉시 재시작 가능                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**무중단 배포의 핵심:**
+- `--no-recreate`: api-gateway(Nginx)를 절대 재생성하지 않음
+- `--no-deps`: 의존성 컨테이너를 건드리지 않음
+- `nginx -s reload`: Nginx 프로세스 재시작 없이 설정만 리로드 (Graceful)
+
 ### Frontend + Backend 통합 구조
 
 ```
@@ -642,7 +706,32 @@ volumes:
 sudo docker-compose -f docker-compose-app.yml up -d --force-recreate api-gateway
 ```
 
-### 7. Jenkins Worker에서 Docker 명령 실패
+### 7. 배포 중 Bad Gateway (502) 발생
+
+| 항목 | 내용 |
+|------|------|
+| **증상** | Blue-Green 배포 중 `502 Bad Gateway` 에러 발생 |
+| **원인** | `docker-compose up -d`가 api-gateway(Nginx)를 재생성하여 순간적 다운타임 발생 |
+| **해결** | `--no-recreate`, `--no-deps` 옵션으로 api-gateway 재생성 방지 |
+
+```groovy
+// 문제 코드: api-gateway도 함께 재생성됨
+sudo docker-compose up -d app-${env.DEPLOY_ENV} api-gateway  // ❌ Bad Gateway 발생
+
+// 해결 코드: api-gateway는 재생성하지 않음
+sudo docker-compose up -d --no-recreate api-gateway          // ✅ 이미 실행 중이면 유지
+sudo docker-compose up -d --no-deps --force-recreate app-${env.DEPLOY_ENV}  // ✅ 앱만 재생성
+```
+
+**docker-compose 옵션 설명:**
+
+| 옵션 | 동작 |
+|------|------|
+| `--no-recreate` | 이미 실행 중이면 재생성하지 않음 |
+| `--no-deps` | 의존성 컨테이너(api-gateway)는 건드리지 않음 |
+| `--force-recreate` | 설정 변경 없어도 강제로 재생성 (새 이미지 적용) |
+
+### 8. Jenkins Worker에서 Docker 명령 실패
 
 | 항목 | 내용 |
 |------|------|
@@ -727,6 +816,20 @@ worker-1:
 
 **Q: HTTP에서 HTTPS로 리다이렉트하는 이유는?**
 > 사용자가 HTTP로 접속해도 자동으로 HTTPS로 전환되어 보안 통신을 강제합니다. 301 Permanent Redirect를 사용하면 브라우저가 이를 캐시하여 다음 접속부터는 바로 HTTPS로 연결합니다.
+
+### Blue-Green 무중단 배포 관련
+
+**Q: Blue-Green 배포란 무엇인가요?**
+> 두 개의 동일한 환경(Blue, Green)을 운영하여 무중단 배포를 구현하는 전략입니다. 현재 트래픽을 받는 환경(예: Blue)을 유지하면서 새 버전을 다른 환경(Green)에 배포하고, 검증 후 트래픽을 전환합니다. 문제 발생 시 이전 환경으로 즉시 롤백할 수 있습니다.
+
+**Q: 무중단 배포 중 502 Bad Gateway가 발생했던 이유와 해결 방법은?**
+> `docker-compose up -d`가 설정 파일 변경을 감지하면 컨테이너를 재생성합니다. api-gateway(Nginx)가 재생성되면서 순간적으로 다운타임이 발생했습니다. `--no-recreate` 옵션으로 이미 실행 중인 api-gateway는 재생성하지 않고, `--no-deps` 옵션으로 의존성 컨테이너를 건드리지 않게 하여 해결했습니다.
+
+**Q: nginx -s reload와 nginx restart의 차이점은?**
+> `nginx -s reload`는 Graceful Reload로, 기존 연결을 유지하면서 설정만 리로드합니다. Worker 프로세스가 현재 요청을 처리한 후 새 설정으로 재시작됩니다. 반면 `restart`는 프로세스를 완전히 중지했다가 시작하므로 순간적인 다운타임이 발생합니다.
+
+**Q: 롤백은 어떻게 하나요?**
+> 이전 환경(Standby)이 중지된 상태로 유지되므로, Nginx 설정 파일을 이전 환경으로 변경하고 `nginx -s reload` 후 Standby 컨테이너를 시작하면 즉시 롤백됩니다. 이미지를 다시 빌드할 필요가 없어 빠른 롤백이 가능합니다.
 
 ---
 
@@ -1112,10 +1215,12 @@ Jenkins가 이 파일을 읽고 순서대로 실행
 ## 프로젝트 성과
 
 - GitHub Push 시 **평균 2분 내 자동 배포** 완료
+- **Blue-Green 무중단 배포** 구현 (502 Bad Gateway 없이 배포)
+- **HTTPS 적용** (Let's Encrypt SSL + Nginx SSL Termination)
 - Jenkins Master-Worker 분리로 **보안 및 확장성** 확보
 - Docker Multi-stage 빌드로 **이미지 크기 최적화** (~200MB)
 - **Frontend + Backend 단일 JAR** 배포 구현
-- **5가지 주요 트러블슈팅** 경험 및 해결
+- **8가지 주요 트러블슈팅** 경험 및 해결
 
 ---
 
