@@ -18,11 +18,15 @@ services:
       - worker-1
 
   worker-1:
-    image: jenkins/ssh-agent:latest-jdk21
+    build:
+      context: .
+      dockerfile: Dockerfile.jenkins-agent
+    user: root
     volumes:
       - ${HOST_JENKINS_WORKER_1}:/home/jenkins
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      - JENKINS_SLAVE_SSH_PUBKEY=ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCTKvRksD94opG1iiqi1YE9mibpaHQUBrRF9EjI68gOqunqBEjtBVR1HVN4Ga5kUxLMlDbDZAa/0ZCM3y+fvCpfwANQ4C4EoUB9dPyoDXUIAQYhzBZzmDKZm9EPWw7+ug0egDCVsPgpFJWpDX/pf3qmkRHtd6Xcv8SvQedzjO/vHvHnpbdrLeh6fF0Bw4xffoimQQsTo7T0MBhV79nG9yinMzsRigk1/egCq7UQs0azvnqBfzLSugHFuvw42GvGdG/zxrj0XjjgcXckgBAgx1Jw4YFq4yOCxFHREOZRph7PXcYWeDRfHsI22BfYVQzi9ksbhl7V/xhKoifju4Gmr4ASQheHaHxNfZzbp2tHGwpXFLjDJUji7Oj3l/NfWlDTftEJsf1RgdIu4PKpWPyMxlm0YywyRiiyvv92uRGSFai6Ye6La3O8aLHYbZ3gUiNaEd+1toWOggCqTMe8mpXABQG7oRSdr+iTw3PTveuQN+5MOV9173t+rPHTLHrL+/ORsU5lYvKp8S93wdFx5T/fe/c5A2wOKlrETRnfyTBSOpEnjRNtzaYvXmyGdKgfJ8zJE6RlCyZuFc1zItNRrELnHK+fHY0c/3gT3FMqm9uF15eDfZGCRvU2Xve/GgF3wcAIbi+R3wUkTARAET1QzX5T3JYjM+qUVeNv3/79lkh6M5KkqQ== jenkins@e6bad8d61e5f
+      - JENKINS_SLAVE_SSH_PUBKEY=ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDEjmuoAV8T+RGno1gepcXa9CLnUH/k3p3ktzymlOd5eFZfobC4hQjeSfy+NjV/YoREwLpkyTQXCEJyOkQXPTYQ71E8fxd7KRUqZC0zUmP77XFGnjFPSBHJPL605lcrMPkw2o6+zTdRxYEdtcKCA4QM37jbIgTMGBxLm5tjR2pFqL31WUm/Fi7CX0BEBAcoFLoA0PqiFpOzaMx9px03y4Cqo8PeWmpSSioXMfVlP7twFJA54HUClyG03sRb6wze80x58lHmQN6bavyJ4bvHl0H29YE//cs6bn/xpr5jQByMSDvAUlzqL8kHm0+S4bbbnKAt4q63xysgDbOyOh0+YAoDb4Rm2J7NnrgCodLfpShy5n4aSrqo/SGO3ovgyxv6AieSbuYIDwC1qmK+UR11psGR//jDTRZ7xCccWUQ0iyUNJ2fnL6+DhdHEDBOIZuehhJSNF7f2gD/+d9dN1ghUral5yU+r8J1fQz6zxZs8wO4jZwqZJPREWMBzo6Qkx7fm4JVgGlXAd5p+feHjjhp8xUstafrGkfNfCINeyBOBg6LLg20QgUR7QhC0JnDsvVMA7jjd10h7FKMRQKWOuqfWe9AvJjevVXKNhDCju2Jme/Vzjw+VKdOhEvlugyPe1JIh7Ogi1pHEt/6HUqaAO84m3g1H0Y5AvZyLpd45ILDwEjoXOw== gusqja0213@baghyeonbeom-ui-noteubug.local
 
   sonarqube:
     image: sonarqube:9-community

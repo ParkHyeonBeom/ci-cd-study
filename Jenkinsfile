@@ -10,14 +10,14 @@ pipeline {
 
     stages {
         stage('Checkout') {
-            agent { label 'built-in' }
+            agent { label 'worker-1' }
             steps {
                 checkout scm
             }
         }
 
         stage('Build & Test') {
-            agent { label 'built-in' }
+            agent { label 'worker-1' }
             steps {
                 // npm 태스크 스킵 - Docker Multi-stage 빌드에서 React 빌드 처리
                 sh './gradlew clean build -x npmInstall -x npmBuild -x copyFrontend'
@@ -25,10 +25,10 @@ pipeline {
         }
 
         stage('Docker Build & Push') {
-            agent { label 'built-in' }
+            agent { label 'worker-1' }
             steps {
                 script {
-                    docker.withRegistry('https://registry.hub.docker.com', 'dockerhub-credentials') {
+                    docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-access-token') {
                         def image = docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}", "--platform linux/amd64 .")
                         image.push()
                         image.push('latest')
@@ -40,11 +40,10 @@ pipeline {
         // ===== Blue-Green 무중단 배포 =====
 
         stage('Detect Active Environment') {
-            agent { label 'deploy' }
+            agent { label 'worker-1' }
             steps {
                 sshagent(['ec2-ssh-key']) {
                     script {
-                        // 현재 활성 환경 감지 (Blue or Green)
                         env.ACTIVE_ENV = sh(
                             script: """
                                 ssh -o StrictHostKeyChecking=no ubuntu@${EC2_HOST} '
@@ -59,7 +58,6 @@ pipeline {
                             returnStdout: true
                         ).trim()
 
-                        // 배포 대상 환경 결정
                         env.DEPLOY_ENV = (env.ACTIVE_ENV == 'blue') ? 'green' : 'blue'
 
                         echo "============================================"
@@ -74,7 +72,7 @@ pipeline {
         }
 
         stage('Deploy to Standby Environment') {
-            agent { label 'deploy' }
+            agent { label 'worker-1' }
             steps {
                 sshagent(['ec2-ssh-key']) {
                     sh """
@@ -95,7 +93,7 @@ pipeline {
         }
 
         stage('Health Check') {
-            agent { label 'deploy' }
+            agent { label 'worker-1' }
             steps {
                 sshagent(['ec2-ssh-key']) {
                     sh """
@@ -124,7 +122,7 @@ pipeline {
         }
 
         stage('Switch Traffic') {
-            agent { label 'deploy' }
+            agent { label 'worker-1' }
             steps {
                 sshagent(['ec2-ssh-key']) {
                     sh """
@@ -133,20 +131,61 @@ pipeline {
 
                             NGINX_CONF_DIR="${DEPLOY_PATH}/nginx-conf"
 
-                            # 트래픽 전환 설정 파일 선택
                             if [ "${env.DEPLOY_ENV}" = "green" ]; then
                                 CONF_FILE="blue-shutdown.conf"
                             else
                                 CONF_FILE="green-shutdown.conf"
                             fi
 
-                            # Nginx 설정 업데이트
                             cp "\${NGINX_CONF_DIR}/\${CONF_FILE}" "\${NGINX_CONF_DIR}/fastcampus-cicd.conf"
                             docker exec api-gateway nginx -s reload
 
                             echo "============================================"
                             echo "  Traffic switched to ${env.DEPLOY_ENV}!"
                             echo "============================================"
+                        '
+                    """
+                }
+            }
+        }
+
+        // ===== 정리 작업 =====
+
+        stage('Stop Old Environment') {
+            agent { label 'worker-1' }
+            steps {
+                sshagent(['ec2-ssh-key']) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ubuntu@${EC2_HOST} '
+                            echo "[Step 5] Stopping old environment (${env.ACTIVE_ENV})..."
+
+                            cd ${DEPLOY_PATH}
+                            docker-compose -f docker-compose-app.yml stop app-${env.ACTIVE_ENV}
+
+                            echo "Old environment (${env.ACTIVE_ENV}) stopped."
+                        '
+                    """
+                }
+            }
+        }
+
+        stage('Cleanup Old Images') {
+            agent { label 'worker-1' }
+            steps {
+                sshagent(['ec2-ssh-key']) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ubuntu@${EC2_HOST} '
+                            echo "[Step 6] Cleaning up unused Docker images..."
+
+                            docker image prune -f
+
+                            docker images ${DOCKER_IMAGE} --format "{{.Tag}}" | \\
+                                grep -E "^[0-9]+\$" | \\
+                                sort -rn | \\
+                                tail -n +4 | \\
+                                xargs -I {} docker rmi ${DOCKER_IMAGE}:{} 2>/dev/null || true
+
+                            echo "[Cleanup] Done!"
                         '
                     """
                 }
@@ -160,7 +199,7 @@ pipeline {
             echo "  Blue-Green Deployment SUCCESSFUL!"
             echo "============================================"
             echo "  Active:  ${env.DEPLOY_ENV} (new version)"
-            echo "  Standby: ${env.ACTIVE_ENV} (rollback ready)"
+            echo "  Standby: ${env.ACTIVE_ENV} (stopped, rollback ready)"
             echo "============================================"
         }
         failure {
