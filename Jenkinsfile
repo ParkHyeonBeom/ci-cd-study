@@ -93,12 +93,12 @@ pipeline {
                     sh """
                         ssh -o StrictHostKeyChecking=no ubuntu@${EC2_HOST} '
                             echo "[Step 1] Pulling new image..."
-                            docker pull ${DOCKER_IMAGE}:${DOCKER_TAG}
+                            sudo docker pull ${DOCKER_IMAGE}:${DOCKER_TAG}
 
                             echo "[Step 2] Deploying to ${env.DEPLOY_ENV}..."
                             cd ${DEPLOY_PATH}
                             export IMAGE=${DOCKER_IMAGE}:${DOCKER_TAG}
-                            docker-compose -f docker-compose-app.yml up -d app-${env.DEPLOY_ENV} api-gateway
+                            sudo -E docker-compose -f docker-compose-app.yml up -d app-${env.DEPLOY_ENV} api-gateway
 
                             echo "Deployment to ${env.DEPLOY_ENV} initiated."
                         '
@@ -120,7 +120,7 @@ pipeline {
                             HEALTH_URL="http://app-${env.DEPLOY_ENV}:8080/health"
 
                             for i in \$(seq 1 \$MAX_RETRIES); do
-                                if docker exec api-gateway curl -sf "\$HEALTH_URL" > /dev/null 2>&1; then
+                                if sudo docker exec api-gateway curl -sf "\$HEALTH_URL" > /dev/null 2>&1; then
                                     echo "Health check PASSED! (${env.DEPLOY_ENV})"
                                     exit 0
                                 fi
@@ -153,7 +153,7 @@ pipeline {
                             fi
 
                             cp "\${NGINX_CONF_DIR}/\${CONF_FILE}" "\${NGINX_CONF_DIR}/fastcampus-cicd.conf"
-                            docker exec api-gateway nginx -s reload
+                            sudo docker exec api-gateway nginx -s reload
 
                             echo "============================================"
                             echo "  Traffic switched to ${env.DEPLOY_ENV}!"
@@ -175,7 +175,7 @@ pipeline {
                             echo "[Step 5] Stopping old environment (${env.ACTIVE_ENV})..."
 
                             cd ${DEPLOY_PATH}
-                            docker-compose -f docker-compose-app.yml stop app-${env.ACTIVE_ENV}
+                            sudo docker-compose -f docker-compose-app.yml stop app-${env.ACTIVE_ENV}
 
                             echo "Old environment (${env.ACTIVE_ENV}) stopped."
                         '
@@ -192,13 +192,13 @@ pipeline {
                         ssh -o StrictHostKeyChecking=no ubuntu@${EC2_HOST} '
                             echo "[Step 6] Cleaning up unused Docker images..."
 
-                            docker image prune -f
+                            sudo docker image prune -f
 
-                            docker images ${DOCKER_IMAGE} --format "{{.Tag}}" | \\
+                            sudo docker images ${DOCKER_IMAGE} --format "{{.Tag}}" | \\
                                 grep -E "^[0-9]+\$" | \\
                                 sort -rn | \\
                                 tail -n +4 | \\
-                                xargs -I {} docker rmi ${DOCKER_IMAGE}:{} 2>/dev/null || true
+                                xargs -I {} sudo docker rmi ${DOCKER_IMAGE}:{} 2>/dev/null || true
 
                             echo "[Cleanup] Done!"
                         '
