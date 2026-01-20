@@ -12,3 +12,6 @@ RUN apt-get update && \
     apt-get update && \
     apt-get install -y docker-ce-cli && \
     rm -rf /var/lib/apt/lists/*
+
+# jenkins 유저에게 docker 소켓 접근 권한 부여
+RUN usermod -aG root jenkins

@@ -71,6 +71,21 @@ pipeline {
             }
         }
 
+        stage('Sync Config Files') {
+            agent { label 'worker-1' }
+            steps {
+                sshagent(['ec2-ssh-key']) {
+                    sh """
+                        echo "[Step 0] Syncing config files to EC2..."
+                        scp -o StrictHostKeyChecking=no docker-compose-app.yml nginx.conf ubuntu@${EC2_HOST}:${DEPLOY_PATH}/
+                        scp -o StrictHostKeyChecking=no -r nginx-conf ubuntu@${EC2_HOST}:${DEPLOY_PATH}/
+                        scp -o StrictHostKeyChecking=no src/main/resources/application-blue.yml src/main/resources/application-green.yml ubuntu@${EC2_HOST}:${DEPLOY_PATH}/
+                        echo "Config files synced successfully."
+                    """
+                }
+            }
+        }
+
         stage('Deploy to Standby Environment') {
             agent { label 'worker-1' }
             steps {
