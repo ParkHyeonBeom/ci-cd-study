@@ -115,7 +115,7 @@ pipeline {
                         ssh -o StrictHostKeyChecking=no ubuntu@${EC2_HOST} '
                             echo "[Step 3] Running health check for ${env.DEPLOY_ENV}..."
 
-                            MAX_RETRIES=10
+                            MAX_RETRIES=30
                             RETRY_INTERVAL=5
                             HEALTH_URL="http://app-${env.DEPLOY_ENV}:8080/health"
 
