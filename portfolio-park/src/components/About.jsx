@@ -1,98 +1,96 @@
-const profileInfo = {
-  name: '박현범',
-  company: 'KUSRC',
-  age: '만 26세',
-  education: '한서대학교 항공소프트웨어공학과 학사',
-  experience: '1년 7개월',
-  grade: 'Junior',
-  specialty: 'Salesforce / Web Based Backend',
+const profileInfo = [
+  { label: '이름', value: '박현범' },
+  { label: '연령', value: '만 26세' },
+  { label: '경력', value: '1년 7개월' },
+  { label: '학력', value: '한서대학교 항공소프트웨어공학과' },
+  { label: '재직', value: 'KUSRC' },
+];
+
+const techStack = {
+  'Salesforce': ['Sales Cloud', 'Commerce Cloud', 'Experience Cloud', 'Data Cloud'],
+  'Backend': ['Java', 'Spring Boot', 'Spring Security', 'JPA', 'QueryDSL'],
+  'DevOps': ['Docker', 'Kubernetes', 'Jenkins', 'GitHub Actions', 'AWS'],
+  'MSA': ['Kafka', 'Eureka', 'Gateway'],
 };
 
 const certifications = [
-  {
-    name: 'Salesforce Admin',
-    icon: (
-      <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-      </svg>
-    ),
-  },
-  {
-    name: 'Data Cloud Consultant',
-    icon: (
-      <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
-      </svg>
-    ),
-  },
-  {
-    name: 'AI Associate',
-    icon: (
-      <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-      </svg>
-    ),
-  },
-  {
-    name: 'Agentforce Specialist',
-    icon: (
-      <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M13 10V3L4 14h7v7l9-11h-7z" />
-      </svg>
-    ),
-  },
+  'Salesforce Admin',
+  'Data Cloud Consultant',
+  'AI Associate',
+  'Agentforce Specialist',
 ];
 
 export function About() {
   return (
-    <section id="about" className="py-24 px-4">
-      <div className="max-w-6xl mx-auto">
-        <h2 className="text-3xl md:text-4xl font-bold text-white mb-4 text-center">
-          About Me
-        </h2>
-        <p className="text-zinc-400 text-center mb-16 max-w-2xl mx-auto">
-          Salesforce 생태계와 웹 개발 역량을 갖춘 개발자입니다.
-        </p>
+    <section id="about" className="py-24 px-5 bg-[#F5F5F5]">
+      <div className="max-w-[960px] mx-auto">
+        <div className="text-center mb-16">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-black text-white text-sm font-bold rounded mb-6">
+            About
+          </div>
+          <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-4">
+            About Me
+          </h2>
+        </div>
 
-        <div className="grid lg:grid-cols-2 gap-12 items-start">
-          {/* Profile Info */}
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8">
-            <h3 className="text-xl font-semibold text-white mb-6">
+        <div className="grid lg:grid-cols-5 gap-8">
+          {/* Profile Card */}
+          <div className="lg:col-span-2 bg-white rounded-xl p-8 border border-gray-200">
+            <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+              <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
               Profile
             </h3>
             <dl className="space-y-4">
-              {Object.entries(profileInfo).map(([key, value]) => (
-                <div key={key} className="flex justify-between items-center py-2 border-b border-zinc-800 last:border-0">
-                  <dt className="text-zinc-500 text-sm capitalize">
-                    {key === 'name' && '이름'}
-                    {key === 'company' && '재직회사'}
-                    {key === 'age' && '연령'}
-                    {key === 'education' && '학력'}
-                    {key === 'experience' && '경력'}
-                    {key === 'grade' && '기술등급'}
-                    {key === 'specialty' && '전문분야'}
-                  </dt>
-                  <dd className="text-white font-medium">{value}</dd>
+              {profileInfo.map((item) => (
+                <div key={item.label} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
+                  <dt className="text-gray-500 text-sm">{item.label}</dt>
+                  <dd className="text-gray-900 font-semibold text-sm">{item.value}</dd>
                 </div>
               ))}
             </dl>
+
+            {/* Certifications */}
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <h4 className="text-sm font-bold text-gray-900 mb-4">Certifications</h4>
+              <div className="flex flex-wrap gap-2">
+                {certifications.map((cert) => (
+                  <span key={cert} className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">
+                    {cert}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
 
-          {/* Certifications */}
-          <div>
-            <h3 className="text-xl font-semibold text-white mb-6">
-              Certifications
+          {/* Tech Stack */}
+          <div className="lg:col-span-3 bg-white rounded-xl p-8 border border-gray-200">
+            <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+              <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+              </div>
+              Tech Stack
             </h3>
-            <div className="grid grid-cols-2 gap-4">
-              {certifications.map((cert, index) => (
-                <div
-                  key={cert.name}
-                  className={`bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 hover:border-brand-500/50 hover:glow-sm transition-all duration-300 stagger-${index + 1}`}
-                >
-                  <div className="text-brand-400 mb-3">{cert.icon}</div>
-                  <h4 className="text-white font-medium text-sm">
-                    {cert.name}
-                  </h4>
+
+            <div className="grid grid-cols-2 gap-6">
+              {Object.entries(techStack).map(([category, skills]) => (
+                <div key={category}>
+                  <h4 className="text-sm font-bold text-gray-700 mb-3">{category}</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {skills.map((skill) => (
+                      <span
+                        key={skill}
+                        className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs font-semibold rounded-lg"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>

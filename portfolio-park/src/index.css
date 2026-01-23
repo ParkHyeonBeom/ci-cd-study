@@ -2,17 +2,21 @@
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css');
 
 @theme {
-  /* Brand Colors - Tech Indigo */
-  --color-brand-50: #eef2ff;
-  --color-brand-100: #e0e7ff;
-  --color-brand-200: #c7d2fe;
-  --color-brand-300: #a5b4fc;
-  --color-brand-400: #818cf8;
-  --color-brand-500: #6366f1;
-  --color-brand-600: #4f46e5;
-  --color-brand-700: #4338ca;
-  --color-brand-800: #3730a3;
-  --color-brand-900: #312e81;
+  /* Musinsa Green */
+  --color-musinsa-green: #3AB449;
+  --color-musinsa-green-dark: #2E9A3D;
+
+  /* Neutral Colors */
+  --color-gray-50: #FAFAFA;
+  --color-gray-100: #F5F5F5;
+  --color-gray-200: #EEEEEE;
+  --color-gray-300: #E0E0E0;
+  --color-gray-400: #BDBDBD;
+  --color-gray-500: #8C8C8C;
+  --color-gray-600: #666666;
+  --color-gray-700: #444444;
+  --color-gray-800: #222222;
+  --color-gray-900: #111111;
 
   /* Animations */
   --animate-fade-in: fade-in 0.5s ease-out forwards;
@@ -36,31 +40,31 @@
 }
 
 :root {
-  /* Semantic - Dark Mode */
-  --background: 240 10% 4%;
-  --foreground: 0 0% 98%;
-  --muted: 240 4% 16%;
-  --muted-foreground: 240 5% 65%;
-  --accent: 239 84% 67%;
-  --accent-foreground: 0 0% 98%;
-  --border: 240 4% 16%;
-  --card: 240 6% 10%;
-  --card-foreground: 0 0% 98%;
+  /* Musinsa Light Theme */
+  --background: #FFFFFF;
+  --background-secondary: #F5F5F5;
+  --foreground: #222222;
+  --muted: #8C8C8C;
+  --accent: #3AB449;
+  --border: #EEEEEE;
 
   /* Duration */
   --duration-fast: 150ms;
   --duration-normal: 200ms;
   --duration-slow: 300ms;
+
+  /* Musinsa easing */
+  --ease-musinsa: cubic-bezier(0.31, 0.27, 0.15, 0.99);
 }
 
 * {
-  border-color: hsl(var(--border));
+  border-color: var(--border);
 }
 
 body {
   margin: 0;
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
+  background-color: var(--background);
+  color: var(--foreground);
   font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
@@ -68,25 +72,93 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Utility Classes */
+/* Musinsa Button Styles */
+.btn-primary {
+  background-color: #3AB449;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 4px;
+  font-weight: 600;
+  transition: filter 300ms var(--ease-musinsa);
+}
+
+.btn-primary:hover {
+  filter: brightness(0.94);
+}
+
+.btn-secondary {
+  background-color: #000000;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 4px;
+  font-weight: 600;
+  transition: filter 300ms var(--ease-musinsa);
+}
+
+.btn-secondary:hover {
+  filter: brightness(0.94);
+}
+
+.btn-outline {
+  background-color: transparent;
+  color: #222222;
+  border: 1px solid #222222;
+  padding: 12px 24px;
+  border-radius: 4px;
+  font-weight: 600;
+  transition: all 300ms var(--ease-musinsa);
+}
+
+.btn-outline:hover {
+  background-color: #000000;
+  color: white;
+}
+
+/* Musinsa Badge */
+.badge-green {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background-color: #3AB449;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 4px;
+}
+
+/* Text Gradient */
 .text-gradient {
-  background: linear-gradient(135deg, #6366f1 0%, #a5b4fc 100%);
+  background: linear-gradient(135deg, #3AB449 0%, #2E9A3D 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-.glow {
-  box-shadow: 0 0 40px rgba(99, 102, 241, 0.3);
+/* Live Badge Animation */
+@keyframes pulse-live {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(58, 180, 73, 0.7);
+  }
+  50% {
+    opacity: 0.8;
+    box-shadow: 0 0 0 8px rgba(58, 180, 73, 0);
+  }
 }
 
-.glow-sm {
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
+.animate-pulse-live {
+  animation: pulse-live 2s ease-in-out infinite;
 }
 
-.bg-glass {
-  background: rgba(24, 24, 27, 0.8);
-  backdrop-filter: blur(12px);
+/* Floating animation */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
 }
 
 /* Stagger delays */

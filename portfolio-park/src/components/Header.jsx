@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 
 const navLinks = [
   { href: '#about', label: 'About' },
+  { href: '#highlights', label: 'Strengths' },
   { href: '#projects', label: 'Projects' },
   { href: '#skills', label: 'Skills' },
   { href: '#contact', label: 'Contact' },
@@ -22,14 +23,14 @@ export function Header() {
   return (
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled ? 'bg-glass border-b border-zinc-800' : 'bg-transparent'
+        isScrolled ? 'bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm' : 'bg-transparent'
       }`}
     >
-      <nav className="max-w-6xl mx-auto px-4 lg:px-8">
+      <nav className="max-w-[960px] mx-auto px-5 lg:px-10">
         <div className="flex items-center justify-between h-16">
           <a
             href="#"
-            className="text-lg font-semibold text-white hover:text-brand-400 transition-colors"
+            className="text-lg font-bold text-gray-900 hover:text-[#3AB449] transition-colors"
           >
             박현범
           </a>
@@ -40,7 +41,7 @@ export function Header() {
               <a
                 key={link.href}
                 href={link.href}
-                className="text-sm text-zinc-400 hover:text-white transition-colors"
+                className="text-sm font-medium text-gray-600 hover:text-[#3AB449] transition-colors"
               >
                 {link.label}
               </a>
@@ -50,7 +51,7 @@ export function Header() {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden p-2 text-zinc-400 hover:text-white"
+            className="md:hidden p-2 text-gray-600 hover:text-gray-900"
             aria-label="Toggle menu"
           >
             <svg
@@ -80,13 +81,13 @@ export function Header() {
 
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
-          <div className="md:hidden py-4 border-t border-zinc-800">
+          <div className="md:hidden py-4 border-t border-gray-200 bg-white">
             {navLinks.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="block py-2 text-zinc-400 hover:text-white transition-colors"
+                className="block py-3 text-gray-600 hover:text-[#3AB449] transition-colors font-medium"
               >
                 {link.label}
               </a>
