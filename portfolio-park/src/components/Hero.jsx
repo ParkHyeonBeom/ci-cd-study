@@ -89,7 +89,7 @@ export function Hero() {
             href="#projects"
             className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-black font-bold rounded hover:bg-gray-100 transition-all"
           >
-            <span>프로젝트 보기</span>
+            <span>프로젝트 보기 Test</span>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
