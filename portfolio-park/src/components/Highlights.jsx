@@ -13,13 +13,13 @@ const highlights = [
   {
     id: 2,
     title: 'AI Native 개발',
-    description: 'Claude Code, Cursor 등 AI Agent를 활용한 개발 워크플로우를 실무에 적용하고 있습니다.',
+    description: 'Claude Code를 활용하여 CLAUDE.md 컨벤션 체계, Slash Commands 6종, Custom Skills 5종, Custom Agents 3종을 구축하고 서브에이전트 병렬 처리로 7개 마이크로서비스를 동시 개발했습니다. 설계부터 배포까지 AI와 협업하는 워크플로우를 실무에 적용하고 있습니다.',
     icon: (
       <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
       </svg>
     ),
-    tags: ['Claude Code', 'Cursor', 'AI Pair Programming'],
+    tags: ['Claude Code', 'CLAUDE.md', 'Slash Commands', 'Custom Skills', 'Custom Agents', 'Sub-Agent'],
   },
   {
     id: 3,

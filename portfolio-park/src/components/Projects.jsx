@@ -1,5 +1,32 @@
 const projects = [
   {
+    id: 7,
+    company: '개인 프로젝트 (Claude Code 기반 AI Native 개발)',
+    title: 'WorkBridge — 사내 업무 통합 플랫폼',
+    period: '2026.01 - 진행중',
+    description:
+      'Google Calendar + Gmail + Drive 데이터를 AI(Gemini/Ollama)로 분석하여 일일 업무 브리핑을 자동 생성하는 사내용 솔루션. 관리자 승인 기반 접근 제어, Audit Logging, 실시간 채팅, AI Agent 등 엔터프라이즈급 기능을 Claude Code만으로 설계·구현·배포까지 전 과정을 수행한 AI Native 개발 프로젝트.',
+    tasks: [
+      'Claude Code CLAUDE.md 기반 프로젝트 컨벤션 체계 수립 (패키지 구조, 에러 처리, API 응답 형식, 테스트 네이밍 등)',
+      'Claude Code Slash Commands 6종 개발 (/daily, /guide, /test-all, /pr, /deploy, /infra-check)',
+      'Claude Code Custom Skills 5종 활용 (implement-feature, write-tests, create-api, code-review, create-k8s)',
+      'Claude Code Custom Agents 3종 구성 (security-reviewer, performance-analyzer, api-documenter)',
+      'Claude Code 서브에이전트 병렬 처리로 7개 마이크로서비스 동시 개발 (Git Worktree 활용)',
+      'OAuth2 + JWT + 관리자 승인 가입 플로우 구현 (PENDING_APPROVAL → ACTIVE)',
+      'Google Calendar/Gmail/Drive API 연동 (최소 권한 원칙, calendar.readonly 등)',
+      'Gemini 2.5 Flash + Ollama Llama 3.1 8B 이중 LLM 라우팅 (Self-hosted 우선)',
+      'SSE 기반 일일 브리핑 스트리밍 + AI Agent 멀티턴 대화',
+      'WebSocket STOMP 실시간 채팅 (메시지 수정/리액션/답장/검색/@멘션/Presence/D&D 파일업로드)',
+      'ArgoCD GitOps 자동 배포 (CD → kustomization.yaml 태그 업데이트 → ArgoCD 자동 sync)',
+      'K3s 단일 노드 클러스터 + Tailscale VPN + ngrok 터널링 인프라 구축',
+    ],
+    techs: ['Claude Code', 'Java 21', 'Spring Boot 3.3', 'React 18', 'K3s', 'ArgoCD', 'GitHub Actions', 'MySQL 8.0', 'Redis', 'WebSocket', 'Gemini AI', 'Ollama', 'Docker'],
+    githubUrl: 'https://github.com/ParkHyeonBeom/ai-work-copilot',
+    isLive: false,
+    isK8s: true,
+    isMSA: true,
+  },
+  {
     id: 6,
     company: '한화시스템 부트캠프',
     title: 'GIGA COFFEE OMS (주문관리시스템)',
